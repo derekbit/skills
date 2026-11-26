@@ -71,43 +71,50 @@ git -C $CLONE rev-parse refs/dr/pr-<n>    # must equal <head>; otherwise the PR 
 if [ -e $WT/.git ]; then git -C $WT checkout --quiet --force --detach <head>
 else git -C $CLONE worktree add --quiet --detach $WT <head>; fi
 BASE=$(git -C $CLONE merge-base refs/dr/base-<base_ref> <head>)
-DIFF="git diff $BASE...<head>"
-rm -rf $WT/.github/hooks $WT/.github/agents $WT/.github/skills $WT/.claude $WT/.mcp.json
+RANGE="$BASE..<head>"
 ```
-
-The `rm` removes project hooks, agents, skills, and MCP config a PR could use to run code in the
-reviewer processes; instruction files and the built-in GitHub MCP server are switched off by flags in
-step 4. Step 6 restores them, so the kept checkout matches the PR exactly.
 
 If `report.md` already exists in `$RUN`, this head was reviewed before: show that report and ask
 before running again.
 
 **Local mode.** Review the user's tree in place. Their own code is trusted and the reviewers cannot
-write:
+write. Uncommitted changes (`git diff HEAD`, untracked files after `git add -N`) are reviewed as one
+extra pseudo-commit after the real ones; say so in `pr.md`.
 
 ```bash
 WT=$(git rev-parse --show-toplevel)
 BASE=$(git -C $WT merge-base <base-ref> HEAD)
-DIFF="git diff $BASE"          # committed + staged + unstaged; untracked files need `git add -N` first
+RANGE="$BASE..HEAD"
 RUN=~/.cache/debate-review/<owner>__<repo>/local-<branch>/<head7>
 mkdir -p $RUN
 ```
 
 ## 3. Context in `$RUN`
 
+The reviewers review the PR **commit by commit** with `git log` and `git show` in the checkout. No
+diff is generated for them. The orchestrator only records the commit list and the changed files:
+
 ```bash
 cd $WT
-EXCL=(':(exclude)vendor/**' ':(exclude)**/go.sum' ':(exclude)go.sum' ':(exclude)**/zz_generated*.go'
-      ':(exclude)k8s/pkg/client/**' ':(exclude)k8s/crds.yaml' ':(exclude)client/generated_*.go'
-      ':(exclude)**/*.pb.go' ':(exclude)**/*_pb2*.py' ':(exclude)generated-py/**' ':(exclude)pkg/generated/**')
-$DIFF -- . "${EXCL[@]}" > $RUN/diff.patch
-$DIFF --name-status > $RUN/files.txt
+git log --reverse --no-merges --format='%H %s' $RANGE > $RUN/commits.txt   # oldest first
+git diff --name-status $BASE > $RUN/files.txt                       # every file the PR changes, net
 git show $BASE:AGENTS.md > $RUN/AGENTS.base.md 2>/dev/null || rm -f $RUN/AGENTS.base.md
+git diff --name-only $BASE -- . ':(exclude)vendor/**' ':(exclude)**/go.sum' ':(exclude)go.sum' \
+  ':(exclude)**/zz_generated*.go' ':(exclude)k8s/pkg/client/**' ':(exclude)k8s/crds.yaml' \
+  ':(exclude)client/generated_*.go' ':(exclude)**/*.pb.go' ':(exclude)**/*_pb2*.py' \
+  ':(exclude)generated-py/**' ':(exclude)pkg/generated/**' | head -1
 ```
 
-If `diff.patch` is empty, only vendor or generated files changed: say so and stop.
+If the last command prints nothing, the PR only touches vendor or generated files (a Renovate bump):
+say so and stop. Reviewers skip the same paths inside each commit (the component profile's "Not
+reviewed" line).
 
-Write `$RUN/pr.md`: title, URL, author, body, and `git log --format='%h %s%n%b' $BASE..HEAD`.
+If `commits.txt` has more than 30 commits, tell the user the review will be slow and ask whether to
+go on. If `git log --merges $RANGE` is not empty, add to `pr.md`: "This PR has merge commits;
+changes made while resolving conflicts appear in no single commit, so also check `git diff
+<base>` for the files the merges touched."
+
+Write `$RUN/pr.md`: title, URL, author, and body (in local mode: the branch name and whether there are uncommitted changes).
 
 Write `$RUN/issues.md` from up to three issues referenced in the title, body, or commits. Longhorn
 issues live in `longhorn/longhorn`: `Issue #N`, `longhorn/longhorn#N`, `longhorn/longhorn-N`,
@@ -126,13 +133,21 @@ or `-H 'Accept: application/vnd.github.diff'`) as `$RUN/lep.md` or `$RUN/related
 
 ## 4. Run the three passes
 
+In PR mode, first remove the project hooks, agents, skills, and MCP config a PR could use to run
+code in the reviewer processes (step 6 restores them, so the kept checkout matches the PR exactly);
+instruction files and the built-in GitHub MCP server are switched off by flags below:
+
+```bash
+rm -rf $WT/.github/hooks $WT/.github/agents $WT/.github/skills $WT/.claude $WT/.mcp.json
+```
+
 For each pass, copy the brief to `$RUN/brief-<pass>.md` and replace `{{REPO}}`, `{{COMPONENT}}`,
-`{{HEAD}}`, `{{DIFF}}` (the `$DIFF` command), `{{RUN}}`, and `{{SKILL_DIR}}`. Then:
+`{{HEAD}}`, `{{RANGE}}` (the `$RANGE` value), `{{RUN}}`, and `{{SKILL_DIR}}`. Then:
 
 ```bash
 cd $WT && copilot -s --no-ask-user --no-custom-instructions --disable-builtin-mcps --model <model> \
   --add-dir=$RUN --add-dir=<skill-dir> \
-  --allow-tool='read, shell(git diff), shell(git log), shell(git show), shell(git grep), shell(git blame), shell(grep), shell(rg)' \
+  --allow-tool='read, shell(git log), shell(git show), shell(git diff), shell(git grep), shell(git blame), shell(grep), shell(rg)' \
   --deny-tool='write, url, shell(gh)' \
   -p "Read $RUN/brief-<pass>.md and follow it exactly. Do not modify any file." > $RUN/<pass>.reply.md
 ```
@@ -154,7 +169,8 @@ Check each document against `references/format.md`:
 - main: drop findings with `confidence` below 0.5;
 - debate: one verdict per `F*` (a missing one is `confirm`); drop `minor` new findings;
 - final: every `F*` and `D*` comes back with a `status`, nothing new, no `D*` is `contested`;
-- each `file` exists and the code quoted in `evidence` is really there.
+- each `file` exists at the head, the lines are the head's lines, and the code quoted in
+  `evidence` is really there; a `commit`, if given, is one of `commits.txt`.
 
 If a reply fails a check, rerun that pass once with one added line naming the problem. If it fails
 again, stop and tell the user which pass failed and where its reply is.
@@ -163,7 +179,7 @@ again, stop and tell the user which pass failed and where its reply is.
 
 Render `final.json` into `$RUN/report.md` as `references/format.md` section 4 shows: `agreed` and
 `contested` findings in severity order, then the withdrawn ones in an appendix with their
-`debate_note`. Mark a finding whose `file` is not in `diff.patch` as "outside the diff". For a
+`debate_note`. Mark a finding whose `file` is not in `files.txt` as "outside the PR's files". For a
 `security` finding that is a real vulnerability, add a line that it should go to
 https://github.com/longhorn/longhorn/security, not a public PR comment.
 
@@ -172,7 +188,7 @@ Show the report to the user in the reply (the summary and the findings), and giv
 
 ## 6. Finish
 
-In PR mode, put back what step 2 removed and leave the checkout in place:
+In PR mode, put back what step 4 removed and leave the checkout in place:
 
 ```bash
 git -C $WT checkout --quiet -- .          # restore the removed hook/agent/skill/MCP files

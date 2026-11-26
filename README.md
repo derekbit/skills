@@ -94,8 +94,10 @@ Tailored to Longhorn (longhorn-manager and the other Longhorn components).
   `main=`, `debate=`, `final=`, or in plain words. By default main is the strongest Claude model,
   debate the strongest model of another family (GPT, then Gemini), final the main model. Names must
   be ones `copilot help` lists for `--model`.
-- **What is reviewed.** PR mode reviews the latest PR head in the checkout above, never your own
-  clone. Local mode reviews your tree in place, read-only (untracked files only after `git add -N`). `vendor/`,
+- **What is reviewed.** The PR's commits, one by one with `git show`, each judged against the code
+  at the PR's latest head (a problem a later commit fixes is not reported). Findings point at lines
+  of the head and name the commit that introduced them. PR mode works in the checkout above, never
+  your own clone. Local mode reviews your tree in place, read-only (untracked files only after `git add -N`). `vendor/`,
   generated code, and `go.sum` are excluded. The repo's `AGENTS.md` is read from the base commit.
 - Component profiles cover longhorn-manager, longhorn-engine, longhorn-instance-manager,
   longhorn-spdk-engine, go-spdk-helper, longhorn-share-manager, backing-image-manager,

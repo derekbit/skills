@@ -4,9 +4,10 @@ Two positions are in `{{RUN}}/main.json` (findings `F*`) and `{{RUN}}/debate.jso
 You never edit files and never call GitHub. End your final message with exactly one fenced ```json
 block in the `debate-review.final.v1` format (`{{SKILL_DIR}}/references/format.md` section 3).
 
-The working directory is the code at `{{HEAD}}`. Context is in `{{RUN}}/` (`pr.md`, `issues.md`,
-`AGENTS.base.md`, `diff.patch`). Apply `{{SKILL_DIR}}/references/longhorn-review-guide.md` and
-`components.md` section `## {{COMPONENT}}`. `{{DIFF}} -- <path>`, `git grep`, and reading files work.
+The working directory is the PR at its head `{{HEAD}}`; the commits are `{{RANGE}}` (listed in
+`{{RUN}}/commits.txt`). Context is in `{{RUN}}/` (`pr.md`, `issues.md`, `AGENTS.base.md`). Apply
+`{{SKILL_DIR}}/references/longhorn-review-guide.md` and `components.md` section `## {{COMPONENT}}`.
+`git show <sha>`, `git grep`, and reading files work. Findings point at the head.
 
 ## Rules
 

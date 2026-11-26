@@ -1,6 +1,6 @@
 # Longhorn review guide (cross-component)
 
-Every reviewer reads this before the diff. The component profile (`components.md`) and the repo's
+Every reviewer reads this before the commits. The component profile (`components.md`) and the repo's
 `AGENTS.md` from the base commit (`AGENTS.base.md` in the run directory) complete it. When this
 guide and `AGENTS.md` disagree, `AGENTS.md` wins.
 
@@ -14,8 +14,10 @@ Do not start line-by-line review before steps 1 to 4 are done (the order longhor
    LEP (`lep.md`) if there is one.
 3. Read cross-repo PRs this one depends on (`related-*.patch`). A manager change that consumes a new
    engine, instance-manager, or types API is only correct if both sides agree.
-4. Read the changed files and their direct callers and callees to learn the local pattern.
-5. Check the change against the issue intent, then do the detailed review.
+4. Read the commit list (`commits.txt`) and each commit's message: the commits are how the author
+   split the change, and the message is the claim to check that commit against.
+5. Read the changed files at the head and their direct callers and callees to learn the local
+   pattern. Check the change against the issue intent, then do the detailed review.
 
 ## Severity (the Longhorn scale)
 
@@ -125,6 +127,18 @@ touches one of them, and if so, where the new code re-establishes it.
 - Never write exploit steps; the report may be copied into a public PR. Name the class of problem
   and the location.
 
+### Commits
+
+- A commit that does not do what its message says, or carries changes unrelated to it, is a `scope`
+  finding at the first line of the unrelated change.
+- A `vendor:` or dependency commit should touch only `go.mod`, `go.sum`, and `vendor/`. Logic hidden
+  in it is easy for a human reviewer to miss: a `scope` finding.
+- Judge every finding at the head. A problem one commit introduces and a later commit fixes is not
+  a finding. Record the introducing commit in `commit` when there is one.
+- Missing `Signed-off-by:` or a commit body without the issue reference (`AGENTS.md`, "Commits and
+  pull requests"): mention in `context_check`, never a finding. Conventional Commit format is linted
+  by CI; skip it.
+
 ### Cheap checks on the changed paths
 
 - `k8s/pkg/apis/longhorn/v1beta*/` changed but `upgrade/` or `webhook/` did not: do existing objects
@@ -143,8 +157,8 @@ touches one of them, and if so, where the new code re-establishes it.
 
 ## Bar for a finding (both passes)
 
-- One discrete defect at one location, introduced by this diff, or on an unchanged line of a
-  function this diff touches, or in an unchanged caller broken by a contract this diff changed.
+- One discrete defect at one location, introduced by this PR, or on an unchanged line of a
+  function this PR touches, or in an unchanged caller broken by a contract this PR changed.
   Pre-existing defects elsewhere are out of scope, even when real.
 - `evidence` names the trigger (input, state, timing, version skew, crash point) and the wrong
   result. If you cannot name the trigger, you do not have a finding.

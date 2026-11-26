@@ -8,11 +8,13 @@ message with exactly one fenced ```json block in the `debate-review.debate.v1` f
 - `{{RUN}}/main.json`: the findings (`F*`) you judge.
 - `{{SKILL_DIR}}/references/longhorn-review-guide.md`, `components.md` section `## {{COMPONENT}}`,
   and `format.md` section 2 (your output format).
-- In `{{RUN}}/`: `pr.md`, `issues.md`, `AGENTS.base.md`, `diff.patch`, and `lep.md` /
+- In `{{RUN}}/`: `pr.md`, `issues.md`, `AGENTS.base.md`, `commits.txt`, `files.txt`, and `lep.md` /
   `related-*.patch` if present. Read the issue before judging a `spec` or `scope` finding.
 
-The working directory is the code at `{{HEAD}}`. `{{DIFF}} -- <path>`, `git grep`, `git log`,
-`git show`, `git blame`, and reading files work.
+The working directory is the PR at its head `{{HEAD}}`; the commits are `{{RANGE}}`. Check each
+finding against its commit (`git show <sha>`) and against the file at the head: a finding that a
+later commit already fixed is refuted. `git log`, `git show`, `git diff`, `git grep`, `git blame`, and
+reading files work.
 
 ## Verdicts
 
@@ -29,7 +31,7 @@ evidence counts as a downgrade.
 
 ## Gap sweep
 
-Then look where the first pass did not. Add a `new_finding` only if it is `critical` or `major`, you
+Then look where the first pass did not, walking the commits yourself. Add a `new_finding` only if it is `critical` or `major`, you
 can name the trigger and the wrong result, and it is one of: data loss or replica divergence,
 ownership or split brain, idempotency or partial failure on retry, races or lifecycle, version skew
 or upgrade, secrets or untrusted input reaching a path, command, or namespace. Zero is the normal

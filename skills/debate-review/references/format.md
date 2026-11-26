@@ -19,6 +19,7 @@ Each reviewer ends its final message with one fenced ```json block. The orchestr
   "findings": [
     {
       "id": "F1",
+      "commit": "<sha7 of the commit that introduced it, if one does>",
       "file": "controller/volume_controller.go",
       "line_start": 412,
       "line_end": 415,
@@ -33,7 +34,8 @@ Each reviewer ends its final message with one fenced ```json block. The orchestr
 }
 ```
 
-Lines are new-side lines of the diff. `critical` and `major` are blocking.
+`file` and lines refer to the file **at the head**, even when the finding is about one commit.
+`critical` and `major` are blocking.
 
 ## 2. `debate-review.debate.v1` (debate pass)
 
@@ -87,7 +89,7 @@ P0 <a>, P1 <b>, P2 <c>, contested <m>, withdrawn <w>.
 ## 3. Key findings
 
 ### P0 Critical, <axis>: <claim>
-`<file>:<line_start>-<line_end>` (agreed | contested; outside the diff)
+`<file>:<line_start>-<line_end>` at head, from commit `<sha7>` (agreed | contested; outside the PR's files)
 
 <evidence>
 
