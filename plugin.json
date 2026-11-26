@@ -1,0 +1,7 @@
+{
+  "name": "agent-skills",
+  "description": "A collection of agent skills for GitHub Copilot.",
+  "version": "0.2.0",
+  "repository": "https://github.com/derekbit/skills",
+  "keywords": ["skills", "code-review"]
+}
